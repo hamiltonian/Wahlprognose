@@ -10,7 +10,7 @@ from plotly.subplots import make_subplots
 import plotly.io as pio
 pio.templates.default = "plotly_white"
 from plotly_resampler import register_plotly_resampler
-from utilities import get_raw_data, create_survey_and_election_data, create_connection
+from utilities import get_raw_data, create_survey_and_election_data, create_connection, get_data_time, get_wahlen_time
 from utilities import parteien, parteien_dict, institute
 
 # Call the register function once and all Figures/FigureWidgets will be wrapped
@@ -22,22 +22,10 @@ register_plotly_resampler(mode='auto')
 #raw_data, cols = get_raw_data()
 #data_time, wahlen_time = create_survey_and_election_data(raw_data=raw_data, cols=cols)
 current_path = os.path.dirname(os.path.abspath(__file__))
-print(current_path)
-conn = create_connection(str(current_path) + '/data/wahlprognosen.db')
-# conn = create_connection('data/wahlprognosen.db')
-data_time = pd.read_sql('SELECT * FROM Prognosen',conn)
-data_time.index = pd.to_datetime(data_time['Datum'])
-data_time.drop('Datum',inplace=True, axis=1)
-
-wahlen_time = pd.read_sql('SELECT * FROM Wahlen',conn)
-wahlen_time.index = pd.to_datetime(wahlen_time['Datum'])
-wahlen_time.drop('Datum',inplace=True, axis=1)
-conn.close()
 
 # Initialize the app
 app = Dash(__name__)
 app.title = 'Auswerung der Sonntagsfrage'
-
 
 # App layout
 app.layout = html.Div([
@@ -58,7 +46,7 @@ app.layout = html.Div([
     dcc.Dropdown(
         id="institute-dropdown",
         value='Mittelwert über alle Institute',
-        options=['Mittelwert über alle Institute'] + list(data_time['Institut'].unique()),
+        options=['Mittelwert über alle Institute'] + list(get_data_time()['Institut'].unique()),
         multi=False,
     ),
     html.Div('Wähle Anzahl der Tage, über die gemittelt werden soll:'),
@@ -96,6 +84,8 @@ app.layout = html.Div([
 
 def erzeuge_datensatz(btn_full, btn_year,btn_6month,btn_month, btn_wahl,relayout_data):
         # print(relayout_data['xaxis.range[0]'], relayout_data['xaxis.range[1]'])
+    data_time = get_data_time()
+    wahlen_time = get_wahlen_time()
     end_datum = pd.to_datetime('today').normalize()
     start_datum = end_datum - pd.Timedelta(days=365)
     if "btn-full" == ctx.triggered_id:
@@ -103,9 +93,9 @@ def erzeuge_datensatz(btn_full, btn_year,btn_6month,btn_month, btn_wahl,relayout
     elif "btn-year" == ctx.triggered_id:
         start_datum = end_datum - pd.Timedelta(days=365)
     elif "btn-6months" == ctx.triggered_id:
-        start_datum = end_datum - pd.Timedelta(weeks=4 * 6)
+        start_datum = end_datum - pd.Timedelta(weeks=24)
     elif "btn-3months" == ctx.triggered_id:
-        start_datum = end_datum - pd.Timedelta(weeks=4 * 3)
+        start_datum = end_datum - pd.Timedelta(weeks=12)
     elif "btn-wahl" == ctx.triggered_id:
         start_datum = wahlen_time.index[-1]
     elif relayout_data is not None and 'xaxis.range[0]' in relayout_data.keys():
@@ -246,6 +236,7 @@ def display_mittelwert_abweichungen(agg_data, parteien, rolling_mean, figure_dat
             
             df = pd.DataFrame({'x': x, 'y':y})
             df['p'] = round(ttest(data_diff[partei].dropna(), 0)[1],4)
+            print(df['p'])
                         
             fig.add_trace(
                 go.Scatter(

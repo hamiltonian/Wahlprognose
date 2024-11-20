@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from sklearn.neighbors import KernelDensity as KD
@@ -79,9 +80,9 @@ parteien = ['CDU/CSU', #black
             'PIRATEN', #darkorange
             'Rechte', #sandybrown
             'REP', #steelblue
-            'Sonstige', 
-            'Nichtwähler', 
-            'Unentschlossene'
+            'Sonstige', #slategrey
+            'Nichtwähler', #slategrey
+            'Unentschlossene' #slategrey
             ]
 parteien_farben = ['black',
                    'red',
@@ -237,3 +238,23 @@ def insert_sql(conn, sql, *args):
     cur.execute(sql, args)
     conn.commit()
     return cur.lastrowid
+
+def get_wahlen_time():
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    conn = create_connection(str(current_path) + '/data/wahlprognosen.db')
+    wahlen_time = pd.read_sql('SELECT * FROM Wahlen',conn)
+    wahlen_time.index = pd.to_datetime(wahlen_time['Datum'])
+    wahlen_time.drop('Datum',inplace=True, axis=1)
+    conn.close()
+    
+    return wahlen_time
+
+def get_data_time():
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    conn = create_connection(str(current_path) + '/data/wahlprognosen.db')
+    data_time = pd.read_sql('SELECT * FROM Prognosen',conn)
+    data_time.index = pd.to_datetime(data_time['Datum'])
+    data_time.drop('Datum',inplace=True, axis=1)
+    conn.close()
+    
+    return data_time
